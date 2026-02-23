@@ -141,8 +141,8 @@
                         });
                     }
 
-                    // หมายเหตุ: หากนำไปรันที่อื่นแล้วเจอ 404 ให้เปลี่ยนชื่อโมเดลเป็น gemini-2.0-flash หรือ gemini-1.5-flash
-                    const modelName = "gemini-2.5-flash-preview-09-2025"; 
+                    // โมเดลสำหรับผู้ใช้งาน API ทั่วไป
+                    const modelName = "gemini-2.0-flash"; 
                     
                     const result = await fetchWithRetry(
                         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
