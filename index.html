@@ -142,8 +142,8 @@
                         });
                     }
 
-                    // ปรับแต่งโมเดลให้ใช้ Gemini Pro
-                    const modelName = "gemini-1.5-pro"; 
+                    // เปลี่ยนมาใช้ Gemini 3.1 Pro ตามคำขอ
+                    const modelName = "gemini-3.1-pro"; 
                     
                     const result = await fetchWithRetry(
                         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
@@ -186,7 +186,7 @@
                     if (error.message.includes('429')) {
                         setErrorMsg("⚠️ ใช้งานเกินโควต้า (Error 429) - คุณอาจจะกดถี่เกินไป กรุณารอประมาณ 1 นาทีแล้วลองกดใหม่อีกครั้งครับ");
                     } else {
-                        setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key หรือลองกดใหม่อีกครั้ง)");
+                        setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key, สิทธิ์การใช้โมเดล หรือลองกดใหม่อีกครั้ง)");
                     }
                     setStatus("idle");
                 }
