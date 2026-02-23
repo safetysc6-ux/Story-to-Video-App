@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Story to Video (Gemini + Flow AI)</title>
+    <title>TikTok Affiliate AI Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -22,7 +22,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // Icons (Inline SVG for self-containment)
+        // Icons
         const IconSparkles = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>;
         const IconImage = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>;
         const IconVideo = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>;
@@ -31,9 +31,9 @@
         const IconUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
         const IconMic = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
 
-        const apiKey = "AIzaSyBGSRBm15tAqFrIwF6LNRSjVKOuHZCoKIw"; // API Key injected by environment
+        const apiKey = "AIzaSyBGSRBm15tAqFrIwF6LNRSjVKOuHZCoKIw"; // API Key จาก Google AI Studio ของคุณ (ปล่อยว่างไว้ถ้าทดสอบในระบบนี้)
 
-        // Helper: Fetch with Exponential Backoff
+        // Helper: Fetch API พร้อมระบบ Retry
         const fetchWithRetry = async (url, options, retries = 5) => {
             const delays = [1000, 2000, 4000, 8000, 16000];
             for (let i = 0; i < retries; i++) {
@@ -49,18 +49,19 @@
         };
 
         const App = () => {
-            const [storyPrompt, setStoryPrompt] = useState("");
+            const [storyPrompt, setStoryPrompt] = useState("เซรั่มบำรุงผิวหน้า ทาแล้วหน้าฉ่ำวาว ลดรอยสิว");
             const [scenes, setScenes] = useState([]);
-            const [status, setStatus] = useState("idle"); // idle, scripting, ready
+            const [status, setStatus] = useState("idle"); 
             const [errorMsg, setErrorMsg] = useState("");
             
-            // New States for TikTok Affiliate features
+            // Settings
             const [aspectRatio, setAspectRatio] = useState("9:16");
             const [tone, setTone] = useState("ตื่นเต้น ป้ายยาหนักๆ");
             const [videoMode, setVideoMode] = useState("affiliate");
             const [productImageBase64, setProductImageBase64] = useState(null);
             const [productImagePreview, setProductImagePreview] = useState(null);
 
+            // Copy to clipboard helper
             const handleCopy = (text) => {
                 const textarea = document.createElement('textarea');
                 textarea.value = text;
@@ -74,6 +75,7 @@
                 document.body.removeChild(textarea);
             };
 
+            // Image Upload Handler
             const handleImageUpload = (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -86,7 +88,7 @@
                 }
             };
 
-            // 1. Generate Script
+            // 1. Generate Script (Gemini)
             const generateScript = async () => {
                 if (!storyPrompt.trim()) return;
                 setStatus("scripting");
@@ -113,7 +115,7 @@
                 ฉากที่ 2: Body/Review (เนื้อหาหลัก/บอกข้อดี/ให้ความรู้)
                 ฉากที่ 3: Call to Action (ชี้เป้าตะกร้า หรือ บอกให้ติดตามช่อง ขึ้นอยู่กับวัตถุประสงค์)
 
-                ส่งกลับมาเป็น JSON array เท่านั้น โครงสร้างตามนี้:
+                ส่งกลับมาเป็น JSON array เท่านั้น โดยไม่ต้องมีเครื่องหมาย markdown หุ้ม โครงสร้างตามนี้:
                 [
                   {
                     "id": 1,
@@ -139,8 +141,11 @@
                         });
                     }
 
+                    // หมายเหตุ: หากนำไปรันที่อื่นแล้วเจอ 404 ให้เปลี่ยนชื่อโมเดลเป็น gemini-2.0-flash หรือ gemini-1.5-flash
+                    const modelName = "gemini-2.5-flash-preview-09-2025"; 
+                    
                     const result = await fetchWithRetry(
-                        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`,
+                        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -168,12 +173,12 @@
                     setScenes(initializedScenes);
                     setStatus("ready");
 
-                    // Auto trigger image generation for all scenes
+                    // ทริกเกอร์สร้างภาพอัตโนมัติ
                     initializedScenes.forEach(scene => generateImage(scene.id, scene.image_prompt_en));
 
                 } catch (error) {
                     console.error(error);
-                    setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ กรุณาลองใหม่อีกครั้ง");
+                    setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key หรือเปลี่ยนชื่อ Model ให้ถูกต้อง)");
                     setStatus("idle");
                 }
             };
@@ -192,7 +197,7 @@
                                 instances: [{ prompt: imagePrompt }],
                                 parameters: { 
                                     sampleCount: 1,
-                                    aspectRatio: aspectRatio
+                                    aspectRatio: aspectRatio // ส่งสัดส่วน 9:16 ให้ Imagen
                                 }
                             })
                         }
@@ -211,22 +216,21 @@
                 }
             };
 
-            // 3. Mock Video Generation (Flow AI)
+            // 3. Mock Video Generation (จำลองการสร้างวิดีโอ)
+            // หากต้องการใช้จริง ให้นำโค้ดเชื่อมต่อ Fal.ai/Luma มาใส่แทนส่วนนี้
             const generateVideo = (id) => {
                 setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingVideo: true, videoProgress: 0 } : s));
                 
-                // Simulate API Progress
                 let progress = 0;
                 const interval = setInterval(() => {
                     progress += Math.random() * 15;
                     if (progress >= 100) {
                         clearInterval(interval);
-                        // Mock Video URL (Using a public sample MP4)
                         setScenes(prev => prev.map(s => s.id === id ? { 
                             ...s, 
                             isGeneratingVideo: false, 
                             videoProgress: 100,
-                            videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' // Placeholder video
+                            videoUrl: 'https://www.w3schools.com/html/mov_bbb.mp4' // วิดีโอจำลอง
                         } : s));
                     } else {
                         setScenes(prev => prev.map(s => s.id === id ? { ...s, videoProgress: progress } : s));
@@ -245,7 +249,7 @@
                             TikTok Affiliate AI Studio
                         </h1>
                         <p className="text-slate-400 max-w-2xl mx-auto">
-                            ปักตะกร้าง่ายๆ ด้วย Gemini 3.1 Pro (Vision) + Flow AI ใส่รูปสินค้า เลือกอารมณ์ แล้วให้ AI สร้างบทพูดพร้อมภาพ 9:16 แบบอัตโนมัติ
+                            เครื่องมือปักตะกร้าครบจบด้วย Gemini Vision + Imagen อัพโหลดรูปสินค้า เลือกอารมณ์ แล้วให้ AI สร้างบทพูดพร้อมภาพแบบอัตโนมัติ
                         </p>
                     </header>
 
@@ -295,7 +299,7 @@
                                         onChange={(e) => setAspectRatio(e.target.value)}
                                         className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
                                     >
-                                        <option value="9:16">9:16 (TikTok / Reels / Shorts)</option>
+                                        <option value="9:16">9:16 (TikTok / Reels)</option>
                                         <option value="16:9">16:9 (YouTube แนวขวาง)</option>
                                         <option value="1:1">1:1 (Instagram)</option>
                                     </select>
@@ -327,7 +331,7 @@
                                     onChange={(e) => setStoryPrompt(e.target.value)}
                                     className="flex-1 bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                     rows="3"
-                                    placeholder="เช่น เซรั่มบำรุงผิวหน้าขาวใส หน้าหมองคล้ำใช้ดีมาก..."
+                                    placeholder="เช่น เซรั่มบำรุงผิวหน้า ทาแล้วหน้าฉ่ำวาว ลดรอยสิว..."
                                 />
                                 <button 
                                     onClick={generateScript}
@@ -479,5 +483,4 @@
         root.render(<App />);
     </script>
 </body>
-
 </html>
