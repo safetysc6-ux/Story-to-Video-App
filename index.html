@@ -30,8 +30,9 @@
         const IconCopy = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>;
         const IconUpload = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
         const IconMic = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
+        const IconKey = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>;
 
-        const apiKey = "AIzaSyBGSRBm15tAqFrIwF6LNRSjVKOuHZCoKIw"; // API Key จาก Google AI Studio ของคุณ (ปล่อยว่างไว้ถ้าทดสอบในระบบนี้)
+        const defaultApiKey = ""; // คีย์สำรองจากระบบ (ถ้าทดสอบในแอปนี้)
 
         // Helper: Fetch API พร้อมระบบ Retry
         const fetchWithRetry = async (url, options, retries = 5) => {
@@ -42,14 +43,17 @@
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return await res.json();
                 } catch (error) {
-                    // หากเป็น Error 429 ให้ Throw ทันทีโดยไม่ต้องรอ Retry ซ้ำไปซ้ำมาเพื่อป้องกันการโดนแบน
-                    if (error.message.includes('429') || i === retries - 1) throw error;
+                    if (error.message.includes('429') || error.message.includes('404') || i === retries - 1) throw error;
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
             }
         };
 
         const App = () => {
+            // User Inputs & API Settings
+            const [userApiKey, setUserApiKey] = useState("");
+            const [modelName, setModelName] = useState("gemini-2.5-flash"); // ค่าเริ่มต้นที่ใหม่และสเถียรสุดตอนนี้
+            
             const [storyPrompt, setStoryPrompt] = useState("เซรั่มบำรุงผิวหน้า ทาแล้วหน้าฉ่ำวาว ลดรอยสิว");
             const [scenes, setScenes] = useState([]);
             const [status, setStatus] = useState("idle"); 
@@ -91,6 +95,12 @@
 
             // 1. Generate Script (Gemini)
             const generateScript = async () => {
+                const activeApiKey = userApiKey.trim() || defaultApiKey;
+                if (!activeApiKey) {
+                    setErrorMsg("⚠️ กรุณากรอก Google API Key ของคุณที่กล่องตั้งค่าด้านบนก่อนเริ่มใช้งาน");
+                    return;
+                }
+
                 if (!storyPrompt.trim()) return;
                 setStatus("scripting");
                 setErrorMsg("");
@@ -142,11 +152,9 @@
                         });
                     }
 
-                    // เลือกรุ่น AI อัตโนมัติ: ถ้าปล่อยคีย์ว่าง(รันในเว็บนี้)ใช้ Preview, ถ้าใส่คีย์ตัวเอง(รันข้างนอก)ใช้ 1.5-flash (ฟรีและเสถียร ไม่ติด 404)
-                    const modelName = apiKey ? "gemini-1.5-flash" : "gemini-2.5-flash-preview-09-2025"; 
-                    
+                    // ใช้โมเดลตามที่ผู้ใช้เลือกจาก Dropdown (ป้องกันปัญหา 404)
                     const result = await fetchWithRetry(
-                        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+                        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeApiKey}`,
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -174,31 +182,32 @@
                     setScenes(initializedScenes);
                     setStatus("ready");
 
-                    // ทริกเกอร์สร้างภาพอัตโนมัติ (หน่วงเวลาเพื่อลดโอกาสเกิด Error 429)
+                    // ทริกเกอร์สร้างภาพอัตโนมัติ
                     for (let i = 0; i < initializedScenes.length; i++) {
-                        generateImage(initializedScenes[i].id, initializedScenes[i].image_prompt_en);
-                        // หน่วงเวลา 2.5 วินาทีระหว่างการส่งคำขอสร้างแต่ละภาพ
+                        generateImage(initializedScenes[i].id, initializedScenes[i].image_prompt_en, activeApiKey);
                         await new Promise(resolve => setTimeout(resolve, 2500)); 
                     }
 
                 } catch (error) {
                     console.error(error);
-                    if (error.message.includes('429')) {
-                        setErrorMsg("⚠️ ใช้งานเกินโควต้า (Error 429) - คุณอาจจะกดถี่เกินไป กรุณารอประมาณ 1 นาทีแล้วลองกดใหม่อีกครั้งครับ");
+                    if (error.message.includes('404')) {
+                        setErrorMsg(`❌ Error 404: ไม่พบโมเดล "${modelName}" ในบัญชีของคุณ หรือ API Key อาจไม่ถูกต้อง กรุณาลองเปลี่ยนโมเดลในกล่องตั้งค่า`);
+                    } else if (error.message.includes('429')) {
+                        setErrorMsg("⚠️ ใช้งานเกินโควต้าต่อนาที (Error 429) กรุณารอสักครู่แล้วกดใหม่");
                     } else {
-                        setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key, สิทธิ์การใช้โมเดล หรือลองกดใหม่อีกครั้ง)");
+                        setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ ตรวจสอบ API Key แล้วลองอีกครั้ง");
                     }
                     setStatus("idle");
                 }
             };
 
             // 2. Generate Image (Imagen)
-            const generateImage = async (id, imagePrompt) => {
+            const generateImage = async (id, imagePrompt, activeApiKey) => {
                 setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: true } : s));
                 
                 try {
                     const result = await fetchWithRetry(
-                        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`,
+                        `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${activeApiKey}`,
                         {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -206,7 +215,7 @@
                                 instances: [{ prompt: imagePrompt }],
                                 parameters: { 
                                     sampleCount: 1,
-                                    aspectRatio: aspectRatio // ส่งสัดส่วน 9:16 ให้ Imagen
+                                    aspectRatio: aspectRatio
                                 }
                             })
                         }
@@ -220,8 +229,10 @@
                         throw new Error("No image data returned");
                     }
                 } catch (error) {
-                    console.error(error);
-                    if (error.message.includes('429')) {
+                    console.error("Image Error:", error);
+                    if (error.message.includes('404')) {
+                        setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error_404_imagen' } : s));
+                    } else if (error.message.includes('429')) {
                         setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error_429' } : s));
                     } else {
                         setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error' } : s));
@@ -264,6 +275,42 @@
                             เครื่องมือปักตะกร้าครบจบด้วย Gemini Vision + Imagen อัพโหลดรูปสินค้า เลือกอารมณ์ แล้วให้ AI สร้างบทพูดพร้อมภาพแบบอัตโนมัติ
                         </p>
                     </header>
+
+                    {/* API Settings Box (New!) */}
+                    <section className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 shadow-lg max-w-3xl mx-auto">
+                        <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                            <IconKey /> ⚙️ ตั้งค่าระบบ (สำหรับใช้งานบนเว็บของคุณเอง)
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="block text-xs text-slate-400">Google API Key ของคุณ</label>
+                                <input 
+                                    type="password" 
+                                    value={userApiKey}
+                                    onChange={(e) => setUserApiKey(e.target.value)}
+                                    placeholder="วาง API Key (AIzaSy...) ที่นี่"
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder-slate-600"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="block text-xs text-slate-400">เลือกรุ่น AI (แก้ปัญหา 404 Not Found)</label>
+                                <select 
+                                    value={modelName}
+                                    onChange={(e) => setModelName(e.target.value)}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                                >
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (มาตรฐานล่าสุด)</option>
+                                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash (เสถียรที่สุด/ฟรี)</option>
+                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro (ฉลาดสุด/อาจต้องมีสิทธิ์)</option>
+                                    <option value="gemini-2.5-flash-preview-09-2025">Gemini 2.5 Preview (รุ่นทดสอบ)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-3 leading-relaxed">
+                            *เพื่อความปลอดภัย ไม่ควรฝัง API Key ลงในโค้ด HTML โดยตรง การให้ผู้ใช้กรอกแบบนี้จะทำให้เว็บของคุณปลอดภัย หากกดสร้างแล้วขึ้น Error 404 ให้ลองเปลี่ยน "รุ่น AI" ทางด้านขวา
+                        </p>
+                    </section>
 
                     {/* Input Section */}
                     <section className="glass rounded-2xl p-6 shadow-xl space-y-6">
@@ -410,7 +457,11 @@
                                                     </div>
                                                 ) : scene.imageUrl === 'error_429' ? (
                                                     <div className="absolute inset-0 flex items-center justify-center text-xs text-amber-400 text-center p-3 bg-amber-400/10">
-                                                        ⚠️ สร้างภาพล้มเหลว<br/>คำขอเยอะเกินไป (Error 429) รอสักครู่แล้วค่อยกดใหม่
+                                                        ⚠️ สร้างภาพล้มเหลว<br/>คำขอเยอะเกินไป (Error 429)
+                                                    </div>
+                                                ) : scene.imageUrl === 'error_404_imagen' ? (
+                                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400 text-center p-2">
+                                                        ⚠️ บัญชีของคุณ<br/>ยังไม่รองรับการวาดภาพ (Imagen)
                                                     </div>
                                                 ) : scene.imageUrl === 'error' ? (
                                                     <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400 text-center p-2">
@@ -500,4 +551,3 @@
     </script>
 </body>
 </html>
-
