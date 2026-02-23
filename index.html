@@ -42,7 +42,8 @@
                     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
                     return await res.json();
                 } catch (error) {
-                    if (i === retries - 1) throw error;
+                    // หากเป็น Error 429 ให้ Throw ทันทีโดยไม่ต้องรอ Retry ซ้ำไปซ้ำมาเพื่อป้องกันการโดนแบน
+                    if (error.message.includes('429') || i === retries - 1) throw error;
                     await new Promise(resolve => setTimeout(resolve, delays[i]));
                 }
             }
@@ -173,12 +174,20 @@
                     setScenes(initializedScenes);
                     setStatus("ready");
 
-                    // ทริกเกอร์สร้างภาพอัตโนมัติ
-                    initializedScenes.forEach(scene => generateImage(scene.id, scene.image_prompt_en));
+                    // ทริกเกอร์สร้างภาพอัตโนมัติ (หน่วงเวลาเพื่อลดโอกาสเกิด Error 429)
+                    for (let i = 0; i < initializedScenes.length; i++) {
+                        generateImage(initializedScenes[i].id, initializedScenes[i].image_prompt_en);
+                        // หน่วงเวลา 2.5 วินาทีระหว่างการส่งคำขอสร้างแต่ละภาพ
+                        await new Promise(resolve => setTimeout(resolve, 2500)); 
+                    }
 
                 } catch (error) {
                     console.error(error);
-                    setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key หรือเปลี่ยนชื่อ Model ให้ถูกต้อง)");
+                    if (error.message.includes('429')) {
+                        setErrorMsg("⚠️ ใช้งานเกินโควต้า (Error 429) - คุณอาจจะกดถี่เกินไป กรุณารอประมาณ 1 นาทีแล้วลองกดใหม่อีกครั้งครับ");
+                    } else {
+                        setErrorMsg("เกิดข้อผิดพลาดในการสร้างสคริปต์ (ตรวจสอบ API Key หรือลองกดใหม่อีกครั้ง)");
+                    }
                     setStatus("idle");
                 }
             };
@@ -212,12 +221,15 @@
                     }
                 } catch (error) {
                     console.error(error);
-                    setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error' } : s));
+                    if (error.message.includes('429')) {
+                        setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error_429' } : s));
+                    } else {
+                        setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingImage: false, imageUrl: 'error' } : s));
+                    }
                 }
             };
 
             // 3. Mock Video Generation (จำลองการสร้างวิดีโอ)
-            // หากต้องการใช้จริง ให้นำโค้ดเชื่อมต่อ Fal.ai/Luma มาใส่แทนส่วนนี้
             const generateVideo = (id) => {
                 setScenes(prev => prev.map(s => s.id === id ? { ...s, isGeneratingVideo: true, videoProgress: 0 } : s));
                 
@@ -346,7 +358,7 @@
                                 </button>
                             </div>
                         </div>
-                        {errorMsg && <p className="text-red-400 mt-3 text-sm">{errorMsg}</p>}
+                        {errorMsg && <p className="text-amber-400 mt-3 text-sm font-medium p-3 bg-amber-400/10 rounded-lg border border-amber-400/20">{errorMsg}</p>}
                     </section>
 
                     {/* Scenes Display */}
@@ -396,6 +408,10 @@
                                                         <div className="loader"></div>
                                                         <span className="text-xs text-slate-400">กำลังวาดภาพ...</span>
                                                     </div>
+                                                ) : scene.imageUrl === 'error_429' ? (
+                                                    <div className="absolute inset-0 flex items-center justify-center text-xs text-amber-400 text-center p-3 bg-amber-400/10">
+                                                        ⚠️ สร้างภาพล้มเหลว<br/>คำขอเยอะเกินไป (Error 429) รอสักครู่แล้วค่อยกดใหม่
+                                                    </div>
                                                 ) : scene.imageUrl === 'error' ? (
                                                     <div className="absolute inset-0 flex items-center justify-center text-xs text-red-400 text-center p-2">
                                                         สร้างภาพล้มเหลว<br/>(ลองเปลี่ยนคำหรือแนวภาพ)
@@ -428,7 +444,7 @@
                                             {!scene.videoUrl && !scene.isGeneratingVideo && (
                                                 <button 
                                                     onClick={() => generateVideo(scene.id)}
-                                                    disabled={!scene.imageUrl || scene.isGeneratingImage || scene.imageUrl === 'error'}
+                                                    disabled={!scene.imageUrl || scene.isGeneratingImage || scene.imageUrl.includes('error')}
                                                     className="w-full bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     <IconSparkles className="w-4 h-4" /> สร้างวิดีโอ (Flow AI)
