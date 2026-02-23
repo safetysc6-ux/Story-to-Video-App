@@ -142,8 +142,8 @@
                         });
                     }
 
-                    // โมเดลสำหรับผู้ใช้งาน API ทั่วไป
-                    const modelName = "gemini-2.0-flash"; 
+                    // ปรับแต่งโมเดลให้ใช้ Gemini Pro
+                    const modelName = "gemini-1.5-pro"; 
                     
                     const result = await fetchWithRetry(
                         `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
